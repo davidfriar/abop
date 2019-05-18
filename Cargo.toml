@@ -1,0 +1,12 @@
+[package]
+name = "abop"
+version = "0.1.0"
+authors = ["david"]
+edition = "2018"
+
+[dependencies]
+luminance = { git = "https://github.com/phaazon/luminance-rs.git" }
+luminance-derive = { git = "https://github.com/phaazon/luminance-rs.git" }
+luminance-glfw = { git = "https://github.com/phaazon/luminance-rs.git" }
+
+
