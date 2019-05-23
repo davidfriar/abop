@@ -8,5 +8,6 @@ edition = "2018"
 luminance = { git = "https://github.com/phaazon/luminance-rs.git" }
 luminance-derive = { git = "https://github.com/phaazon/luminance-rs.git" }
 luminance-glfw = { git = "https://github.com/phaazon/luminance-rs.git" }
-
+pest="2.1.1"
+pest_derive="2.1.0"
 

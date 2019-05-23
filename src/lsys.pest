@@ -1,0 +1,21 @@
+WHITESPACE = _{ " " }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+lsystem = {SOI ~ axiom ~ (NEWLINE ~ production)* ~ NEWLINE? ~ EOI}
+axiom = {axiom_element*}
+axiom_element = { symbol ~ actual_params? }
+actual_params = { "(" ~ number ~ ("," ~ number)* ~ ")"}
+
+production = { pred ~ "=" ~ succ*}
+pred = { symbol ~ formal_params? }
+formal_params = { "(" ~ var ~ ("," ~ var)* ~ ")"}
+succ =  { symbol ~ expression_list? }
+expression_list = { "(" ~ expression ~ ("," ~ expression)* ~ ")"}
+
+var = { 'a'..'z' }
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+ )? }
+
+expression = { term ~ (("+" | "-" ) ~ term)* }
+term =  { factor ~ (("/" | "*" ) ~ factor)* }
+factor = { number | var }
+
+symbol={ ASCII_ALPHA |"+"|"-"}
