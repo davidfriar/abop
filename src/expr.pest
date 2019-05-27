@@ -1,0 +1,14 @@
+expression = { SOI ~ expr  ~EOI }
+expr = { term ~ (operation ~ term)* }
+term = _{ var | number | "(" ~ expr ~ ")" }
+operation = _{ add | subtract | multiply | divide | power }
+    add      = { "+" }
+    subtract = { "-" }
+    multiply = { "*" }
+    divide   = { "/" }
+    power    = { "^" }
+
+
+var = { 'a'..'z' }
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+ )? }
+WHITESPACE = _{ " " }

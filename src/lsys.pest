@@ -10,12 +10,16 @@ pred = { symbol ~ formal_params? }
 formal_params = { "(" ~ var ~ ("," ~ var)* ~ ")"}
 succ =  { symbol ~ expression_list? }
 expression_list = { "(" ~ expression ~ ("," ~ expression)* ~ ")"}
+expression = { term ~ (operation ~ term)* }
+term = _{ var| number | "(" ~ expression ~ ")" }
+operation = _{ add | subtract | multiply | divide | power }
+    add      = { "+" }
+    subtract = { "-" }
+    multiply = { "*" }
+    divide   = { "/" }
+    power    = { "^" }
+
 
 var = { 'a'..'z' }
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+ )? }
-
-expression = { term ~ (("+" | "-" ) ~ term)* }
-term =  { factor ~ (("/" | "*" ) ~ factor)* }
-factor = { number | var }
-
 symbol={ ASCII_ALPHA |"+"|"-"}

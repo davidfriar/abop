@@ -1,57 +1,49 @@
-mod graphics;
-mod lsys;
-mod parser;
-mod turtle;
+use abop::cli::Opt;
+use abop::graphics;
+use abop::parser;
+use abop::turtle;
+use std::fs;
+use std::io::{self, Read};
 
-use crate::lsys::{ActualParam, Element, LString, LSystem, ParamList};
-// use crate::parser;
-use crate::turtle::Turtle;
-
-const KOCH: &str = include_str!("data/koch");
-const SIMPLE: &str = include_str!("data/simple");
+use structopt::StructOpt;
 
 fn main() {
-    // let lsys=LSystem::new(KOCH);
-    let mut lsys = parser::parse_lsys(SIMPLE);
-    // for _ in 1..10 {
-    //     lsys.generate();
-    // }
-    // let mut turtle = Turtle::new();
+    let opt = Opt::from_args();
+    println!("{:?}", opt);
 
-    // let model=turtle.interpret(lsys.current);
+    let input = match opt.file {
+        None => {
+            let mut buffer = String::new();
+            io::stdin().read_to_string(&mut buffer).unwrap();
+            buffer
+        }
+        Some(path) => fs::read_to_string(path).unwrap(),
+    };
 
-    // graphics::run(model);
-    //
-    //
-    //
-    //println!("{}", lsys);
-    // for _ in 1..10 {
-    //     lsys.generate();
-    //     println!("{}", lsys);
-    // }
+    if opt.input_graphics_model {
+        //to do : parse model
+        graphics::run(vec![]);
+        return;
+    }
 
-    // let now = std::time::Instant::now();
-    // for i in 1..28 {
-    //     lsys.generate();
-    //     println!(
-    //         "{} - {} - {} - {}",
-    //         i,
-    //         lsys.current.capacity(),
-    //         lsys.current.len(),
-    //         now.elapsed().as_millis()
-    //     );
-    // }
+    let mut lsys = parser::parse_lsys(&input);
 
-    //println!("hello {:?}", lsys.take(2).collect::<Vec<LString>>());
+    if opt.iterations > 0 {
+        lsys.nth(opt.iterations - 1);
+    }
 
-    println!("hello {:?}", lsys.nth(0).unwrap());
+    if opt.output_lsystem {
+        //to do : currently ignoring verbose. Need to solve how to implement Display for LString
+        println!("{}", lsys);
+        return;
+    }
 
-    println!(
-        "sizeof element : {}",
-        std::mem::size_of::<Element<ActualParam>>()
-    );
-    println!(
-        "sizeof paramlist : {}",
-        std::mem::size_of::<ParamList<ActualParam>>()
-    );
+    let model = turtle::Turtle::new().interpret(&lsys.current);
+
+    if opt.output_model {
+        println!("{:?}", model); // to do - Display for Model
+        return;
+    }
+
+    graphics::run(model);
 }

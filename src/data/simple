@@ -1,3 +1,6 @@
-aaabbbccc
+aaabbbccc(1,2)
 a=bb
 b=aa
+c=c(1)
+c(x)=c(2*x)d(3,6)
+d(x,y)=d(x+y,x*y)

@@ -46,13 +46,10 @@ where
     let mut element = element.into_inner();
     let symbol = from_str(element.next().unwrap());
     match element.next() {
-        Some(params) => {
-            let params: Vec<T> = params.into_inner().map(from_str).collect();
-            Element {
-                symbol,
-                params: ParamList::from_vec(&params),
-            }
-        }
+        Some(params) => Element {
+            symbol,
+            params: params.into_inner().map(from_str).collect(),
+        },
         None => Element {
             symbol,
             params: ParamList::Empty,

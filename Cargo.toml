@@ -10,4 +10,6 @@ luminance-derive = { git = "https://github.com/phaazon/luminance-rs.git" }
 luminance-glfw = { git = "https://github.com/phaazon/luminance-rs.git" }
 pest="2.1.1"
 pest_derive="2.1.0"
-
+arrayvec="0.4.10"
+lazy_static = "1.3.0"
+structopt = "0.2.15"
