@@ -7,6 +7,7 @@ pub struct LSystem {
     pub current: LString,
     next: LString,
     productions: Vec<Production>,
+    count: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +57,45 @@ impl Production {
     }
 }
 
-pub type LString = Vec<Element<ActualParam>>;
+#[derive(Debug, Clone)]
+pub struct LString(Vec<Element<ActualParam>>);
+
+impl LString {
+    fn new() -> Self {
+        LString(Vec::new())
+    }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn push(&mut self, value: Element<ActualParam>) {
+        self.0.push(value);
+    }
+
+    pub fn append(&mut self, other: &mut LString) {
+        self.0.append(&mut other.0);
+    }
+}
+
+impl<'a> IntoIterator for &'a LString {
+    type Item = &'a Element<ActualParam>;
+    type IntoIter = std::slice::Iter<'a, Element<ActualParam>>;
+
+    fn into_iter(self) -> std::slice::Iter<'a, Element<ActualParam>> {
+        self.0.iter()
+    }
+}
+
+impl FromIterator<Element<ActualParam>> for LString {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Element<ActualParam>>,
+    {
+        LString(Vec::from_iter(iter.into_iter()))
+    }
+}
+
 pub type Axiom = LString;
 pub type Symbol = char;
 pub type ActualParam = f32;
@@ -116,14 +155,15 @@ impl LSystem {
     pub fn new(axiom: Axiom, productions: Vec<Production>) -> Self {
         LSystem {
             current: axiom,
-            next: Vec::new(),
+            next: LString::new(),
             productions,
+            count: 0,
         }
     }
 
     pub fn generate(&mut self) {
         for element in &self.current {
-            match self.select_production(element) {
+            match self.select_production(&element) {
                 Some(production) => self.next.append(&mut production.apply(&element)),
                 None => self.next.push(element.clone()),
             }
@@ -141,7 +181,10 @@ impl Iterator for LSystem {
     type Item = LString;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.generate();
+        if self.count > 0 {
+            self.generate();
+        }
+        self.count += 1;
         Some(self.current.clone())
     }
 
@@ -173,9 +216,7 @@ impl<T> ParamList<T> {
 
 impl fmt::Display for LSystem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for element in &self.current {
-            write!(f, "{}", element)?;
-        }
+        write!(f, "{}", self.current)?;
         writeln!(f)?;
         for production in &self.productions {
             writeln!(f, "{}", production)?;
@@ -183,6 +224,16 @@ impl fmt::Display for LSystem {
         Ok(())
     }
 }
+
+impl fmt::Display for LString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for element in self {
+            write!(f, "{}", element)?;
+        }
+        Ok(())
+    }
+}
+
 impl<T: fmt::Display> fmt::Display for Element<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.symbol, self.params)

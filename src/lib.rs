@@ -1,5 +1,9 @@
 #[macro_use]
 extern crate lazy_static;
+extern crate num_traits;
+
+#[macro_use]
+extern crate approx;
 
 pub mod cli;
 pub mod expr;

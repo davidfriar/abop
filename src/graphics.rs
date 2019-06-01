@@ -27,7 +27,7 @@ pub struct Vertex {
     pub pos: VertexPosition,
 }
 
-pub fn run(model: Vec<Vertex>) {
+pub fn run(model: &Vec<Vertex>) {
     let mut surface = GlfwSurface::new(
         WindowDim::Windowed(960, 540),
         "LSystem",
