@@ -1,4 +1,4 @@
-use crate::lsys::{Axiom, Element, LSystem, ParamList, Production};
+use crate::lsys::{Element, LString, LSystem, Params, Production};
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
 use pest_derive::Parser;
@@ -20,7 +20,7 @@ pub fn parse_lsys(s: &str) -> LSystem {
     )
 }
 
-fn produce_axiom(axiom: Pair<Rule>) -> Axiom {
+fn produce_axiom(axiom: Pair<Rule>) -> LString {
     axiom.into_inner().map(produce_element).collect()
 }
 
@@ -52,7 +52,7 @@ where
         },
         None => Element {
             symbol,
-            params: ParamList::Empty,
+            params: Params::empty(),
         },
     }
 }

@@ -13,7 +13,7 @@ fn main() {
 
     if opt.input_graphics_model {
         //to do : parse model
-        graphics::run(&vec![]);
+        graphics::Application::new().run(&vec![]);
         return;
     }
 
@@ -36,7 +36,7 @@ fn main() {
         return;
     }
 
-    graphics::run(model);
+    graphics::Application::new().run(model);
 }
 
 fn read_input(opt: &Opt) -> String {

@@ -2,6 +2,10 @@ use crate::expr::{Context, Expression};
 use std::fmt;
 use std::iter::FromIterator;
 
+pub type Symbol = char;
+pub type ActualParam = f32;
+pub type FormalParam = char;
+
 #[derive(Debug)]
 pub struct LSystem {
     pub current: LString,
@@ -11,17 +15,19 @@ pub struct LSystem {
 }
 
 #[derive(Debug, Clone)]
-pub struct Element<T> {
-    pub symbol: Symbol,
-    pub params: ParamList<T>,
-}
+pub struct LString(Vec<Element<ActualParam>>);
 
 #[derive(Debug, Clone)]
-pub enum ParamList<T> {
-    Empty,
-    A1([T; 1]),
-    A2([T; 2]),
-    A3([T; 3]),
+pub struct Element<T> {
+    pub symbol: Symbol,
+    pub params: Params<T>,
+}
+
+const MAX_PARAMS: usize = 3;
+#[derive(Debug, Clone)]
+pub struct Params<T> {
+    len: u8,
+    data: [T; MAX_PARAMS],
 }
 
 #[derive(Debug)]
@@ -30,129 +36,8 @@ pub struct Production {
     pub succ: Vec<Element<Expression>>,
 }
 
-impl Production {
-    fn matches(&self, element: &Element<ActualParam>) -> bool {
-        self.pred.matches(element)
-    }
-
-    fn apply(&self, element: &Element<ActualParam>) -> LString {
-        let context: Context = self
-            .pred
-            .params
-            .into_iter()
-            .cloned()
-            .zip(element.params.into_iter().cloned())
-            .collect();
-
-        self.succ
-            .iter()
-            .map(|Element { symbol, params }| Element {
-                symbol: *symbol,
-                params: params
-                    .into_iter()
-                    .map(|param| param.eval(&context))
-                    .collect(),
-            })
-            .collect()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct LString(Vec<Element<ActualParam>>);
-
-impl LString {
-    fn new() -> Self {
-        LString(Vec::new())
-    }
-
-    fn clear(&mut self) {
-        self.0.clear();
-    }
-
-    fn push(&mut self, value: Element<ActualParam>) {
-        self.0.push(value);
-    }
-
-    pub fn append(&mut self, other: &mut LString) {
-        self.0.append(&mut other.0);
-    }
-}
-
-impl<'a> IntoIterator for &'a LString {
-    type Item = &'a Element<ActualParam>;
-    type IntoIter = std::slice::Iter<'a, Element<ActualParam>>;
-
-    fn into_iter(self) -> std::slice::Iter<'a, Element<ActualParam>> {
-        self.0.iter()
-    }
-}
-
-impl FromIterator<Element<ActualParam>> for LString {
-    fn from_iter<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = Element<ActualParam>>,
-    {
-        LString(Vec::from_iter(iter.into_iter()))
-    }
-}
-
-pub type Axiom = LString;
-pub type Symbol = char;
-pub type ActualParam = f32;
-pub type FormalParam = char;
-
-impl<T> ParamList<T>
-where
-    T: Default + Clone,
-{
-    pub fn from_slice(slice: &[T]) -> ParamList<T> {
-        match slice.len() {
-            0 => ParamList::Empty,
-            1 => {
-                let mut a: [T; 1] = Default::default();
-                a.clone_from_slice(&slice);
-                ParamList::A1(a)
-            }
-            2 => {
-                let mut a: [T; 2] = Default::default();
-                a.clone_from_slice(&slice);
-                ParamList::A2(a)
-            }
-            3 => {
-                let mut a: [T; 3] = Default::default();
-                a.clone_from_slice(&slice);
-                ParamList::A3(a)
-            }
-            _ => panic!("too many params"),
-        }
-    }
-}
-
-impl<'a, T> IntoIterator for &'a ParamList<T> {
-    type Item = &'a T;
-    type IntoIter = std::slice::Iter<'a, T>;
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            ParamList::Empty => [].iter(),
-            ParamList::A1(a) => a.iter(),
-            ParamList::A2(a) => a.iter(),
-            ParamList::A3(a) => a.iter(),
-        }
-    }
-}
-
-impl<T> FromIterator<T> for ParamList<T>
-where
-    T: Default + Clone,
-{
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let v: Vec<T> = iter.into_iter().collect();
-        ParamList::from_slice(&v[..])
-    }
-}
-
 impl LSystem {
-    pub fn new(axiom: Axiom, productions: Vec<Production>) -> Self {
+    pub fn new(axiom: LString, productions: Vec<Production>) -> Self {
         LSystem {
             current: axiom,
             next: LString::new(),
@@ -198,19 +83,125 @@ impl Iterator for LSystem {
 
 impl<T> Element<T> {
     fn matches<U>(&self, other: &Element<U>) -> bool {
-        self.symbol == other.symbol && self.params.same_arity(&other.params)
+        self.symbol == other.symbol && self.params.len() == other.params.len()
     }
 }
 
-impl<T> ParamList<T> {
-    fn same_arity<U>(&self, other: &ParamList<U>) -> bool {
-        match (self, other) {
-            (ParamList::Empty, ParamList::Empty) => true,
-            (ParamList::A1(_), ParamList::A1(_)) => true,
-            (ParamList::A2(_), ParamList::A2(_)) => true,
-            (ParamList::A3(_), ParamList::A3(_)) => true,
-            (_, _) => false,
+impl<T> Params<T>
+where
+    T: Default + Clone,
+{
+    pub fn from_slice(slice: &[T]) -> Params<T> {
+        if slice.len() > MAX_PARAMS {
+            panic!("Too many params")
         }
+
+        let mut params = Params {
+            len: slice.len() as u8,
+            data: Default::default(),
+        };
+        for (i, param) in slice.iter().enumerate() {
+            params.data[i] = param.clone();
+        }
+        params
+    }
+
+    pub fn empty() -> Self {
+        Params {
+            len: 0,
+            data: Default::default(),
+        }
+    }
+}
+
+impl<T> Params<T> {
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    pub fn values(&self) -> &[T] {
+        &self.data[0..self.len()]
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Params<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.values().iter()
+    }
+}
+
+impl<T> FromIterator<T> for Params<T>
+where
+    T: Default + Clone,
+{
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let v: Vec<T> = iter.into_iter().collect();
+        Params::from_slice(&v[..])
+    }
+}
+
+impl Production {
+    fn matches(&self, element: &Element<ActualParam>) -> bool {
+        self.pred.matches(element)
+    }
+
+    fn apply(&self, element: &Element<ActualParam>) -> LString {
+        let context: Context = self
+            .pred
+            .params
+            .into_iter()
+            .cloned()
+            .zip(element.params.into_iter().cloned())
+            .collect();
+
+        self.succ
+            .iter()
+            .map(|Element { symbol, params }| Element {
+                symbol: *symbol,
+                params: params
+                    .into_iter()
+                    .map(|param| param.eval(&context))
+                    .collect(),
+            })
+            .collect()
+    }
+}
+
+impl LString {
+    fn new() -> Self {
+        LString(Vec::new())
+    }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn push(&mut self, value: Element<ActualParam>) {
+        self.0.push(value);
+    }
+
+    pub fn append(&mut self, other: &mut LString) {
+        self.0.append(&mut other.0);
+    }
+}
+
+impl<'a> IntoIterator for &'a LString {
+    type Item = &'a Element<ActualParam>;
+    type IntoIter = std::slice::Iter<'a, Element<ActualParam>>;
+
+    fn into_iter(self) -> std::slice::Iter<'a, Element<ActualParam>> {
+        self.0.iter()
+    }
+}
+
+impl FromIterator<Element<ActualParam>> for LString {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Element<ActualParam>>,
+    {
+        LString(Vec::from_iter(iter.into_iter()))
     }
 }
 
@@ -240,13 +231,20 @@ impl<T: fmt::Display> fmt::Display for Element<T> {
     }
 }
 
-impl<T: fmt::Display> fmt::Display for ParamList<T> {
+impl<T: fmt::Display> fmt::Display for Params<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ParamList::Empty => Ok(()),
-            ParamList::A1(a) => write!(f, "({})", a[0]),
-            ParamList::A2(a) => write!(f, "({}, {})", a[0], a[1]),
-            ParamList::A3(a) => write!(f, "({},{},{})", a[0], a[1], a[2]),
+        match self.len() {
+            0 => Ok(()),
+            _ => {
+                write!(f, "(")?;
+                let mut iter = self.into_iter();
+                write!(f, "{}", iter.next().unwrap())?;
+                for param in iter {
+                    write!(f, ", {}", param)?;
+                }
+                write!(f, ")")?;
+                Ok(())
+            }
         }
     }
 }

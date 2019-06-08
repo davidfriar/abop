@@ -1,5 +1,5 @@
 use crate::graphics::{Vertex, VertexPosition};
-use crate::lsys::{ActualParam, Element, LString, ParamList};
+use crate::lsys::{ActualParam, Element, LString};
 extern crate nalgebra_glm as glm;
 use glm::Vec3;
 use num_traits::identities::Zero;
@@ -11,6 +11,7 @@ pub struct Turtle {
     up: Vec3,
     right: Vec3,
     model: Vec<Vertex>,
+    stack: Vec<(Vec3, Vec3, Vec3, Vec3)>,
 }
 
 impl Default for Turtle {
@@ -27,6 +28,7 @@ impl Turtle {
             up: Vec3::z(),
             right: Vec3::x(),
             model: Vec::new(),
+            stack: Vec::new(),
         }
     }
 
@@ -55,6 +57,23 @@ impl Turtle {
         self.push_position();
     }
 
+    pub fn push_state(&mut self) {
+        self.stack
+            .push((self.position, self.heading, self.up, self.right));
+    }
+
+    pub fn pop_state(&mut self) {
+        match self.stack.pop() {
+            Some((p, h, u, r)) => {
+                self.position = p;
+                self.heading = h;
+                self.up = u;
+                self.right = r;
+            }
+            _ => (),
+        }
+    }
+
     fn push_position(&mut self) {
         self.model.push(Vertex {
             pos: VertexPosition::new([self.position.x, self.position.y, self.position.z]),
@@ -69,13 +88,23 @@ impl Turtle {
     }
 
     fn interpret_element(&mut self, element: &Element<ActualParam>) {
-        match (element.symbol, &element.params) {
-            ('F', ParamList::Empty) => self.draw(0.01),
-            ('F', ParamList::A1([x])) => self.draw(*x),
-            ('+', ParamList::Empty) => self.turn(90.0),
-            ('+', ParamList::A1([x])) => self.turn(*x),
-            ('-', ParamList::Empty) => self.turn(-90.0),
-            ('-', ParamList::A1([x])) => self.turn(-*x),
+        match (element.symbol, element.params.values()) {
+            ('F', []) => self.draw(0.01),
+            ('F', [x]) => self.draw(*x),
+            ('+', []) => self.turn(90.0),
+            ('+', [x]) => self.turn(*x),
+            ('-', []) => self.turn(-90.0),
+            ('-', [x]) => self.turn(-*x),
+            ('/', []) => self.roll(90.0),
+            ('/', [x]) => self.roll(*x),
+            ('\\', []) => self.roll(-90.0),
+            ('\\', [x]) => self.roll(-*x),
+            ('^', []) => self.pitch(90.0),
+            ('^', [x]) => self.pitch(*x),
+            ('&', []) => self.pitch(-90.0),
+            ('&', [x]) => self.pitch(-*x),
+            ('[', []) => self.push_state(),
+            (']', []) => self.pop_state(),
             _ => (),
         }
     }
