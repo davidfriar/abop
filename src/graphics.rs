@@ -6,7 +6,7 @@ extern crate nalgebra_glm as glm;
 use glm::Vec3;
 use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
-use luminance::linear::M44;
+use luminance::linear::{M33, M44};
 use luminance::render_state::RenderState;
 use luminance::shader::program::{Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
@@ -24,17 +24,26 @@ const FS: &str = include_str!("fs.glsl");
 pub enum Semantics {
     #[sem(name = "pos", repr = "[f32; 3]", type_name = "VertexPosition")]
     Position,
+    #[sem(name = "col", repr = "[f32; 3]", type_name = "VertexColor")]
+    Color,
+    #[sem(name = "norm", repr = "[f32; 3]", type_name = "VertexNormal")]
+    Normal,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Vertex)]
 #[vertex(sem = "Semantics")]
 pub struct Vertex {
     pub pos: VertexPosition,
+    pub col: VertexColor,
+    pub norm: VertexNormal,
 }
 
 #[derive(Debug, UniformInterface)]
 struct ShaderInterface {
-    transform: Uniform<M44>,
+    model_transform: Uniform<M44>,
+    normal_transform: Uniform<M33>,
+    mvp_transform: Uniform<M44>,
+    view_pos: Uniform<[f32; 3]>,
 }
 
 struct Timer {
@@ -104,7 +113,7 @@ impl Application {
     fn load_object(&mut self, obj: &Vec<Vertex>) -> Tess {
         TessBuilder::new(&mut self.surface)
             .add_vertices(obj)
-            .set_mode(Mode::Line)
+            .set_mode(Mode::Triangle)
             .build()
             .unwrap()
     }
@@ -143,13 +152,19 @@ impl Application {
     fn render(&mut self, obj: &Tess) {
         let surface = &mut self.surface;
         let program = &self.program;
-        let transform: glm::Mat4 = self.projection * self.camera.view() * self.model;
+        let mvp_transform: glm::Mat4 = self.projection * self.camera.view() * self.model;
+        let model = self.model.clone();
+        let view_pos = self.camera.position.clone();
+        let normal_transform = glm::mat4_to_mat3(&glm::transpose(&glm::inverse(&self.model)));
 
         surface
             .pipeline_builder()
             .pipeline(&self.back_buffer, [0., 0., 0., 0.], |_, shd_gate| {
                 shd_gate.shade(program, |rdr_gate, iface| {
-                    iface.transform.update(transform.into());
+                    iface.mvp_transform.update(mvp_transform.into());
+                    iface.model_transform.update(model.into());
+                    iface.normal_transform.update(normal_transform.into());
+                    iface.view_pos.update(view_pos.into());
                     rdr_gate.render(RenderState::default(), |tess_gate| {
                         tess_gate.render(surface, obj.into());
                     });
