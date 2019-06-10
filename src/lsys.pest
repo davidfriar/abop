@@ -22,4 +22,4 @@ operation = _{ add | subtract | multiply | divide | power }
 
 var = { 'a'..'z' }
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+ )? }
-symbol={ ASCII_ALPHA |"+"|"-"|"["|"]"|"/"|"\\"|"^"|"&"}
+symbol={ ASCII_ALPHA |"+"|"-"|"["|"]"|"/"|"\\"|"^"|"&"|"`"}

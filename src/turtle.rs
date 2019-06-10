@@ -64,6 +64,11 @@ impl TurtleState {
         self.right = glm::rotate_vec3(&self.right, angle.to_radians(), &self.heading);
         self.up = glm::rotate_vec3(&self.up, angle.to_radians(), &self.heading);
     }
+    pub fn color(&mut self, r: f32, g: f32, b: f32) {
+        self.color[0] = r;
+        self.color[1] = g;
+        self.color[2] = b;
+    }
 }
 
 impl Default for Turtle {
@@ -127,16 +132,14 @@ impl Turtle {
             self.output_triangle(shape2[i], shape1[i], shape2[next]);
             self.output_triangle(shape2[next], shape1[i], shape1[next]);
         }
-        println!("setting size to {}", size2);
         self.state.size = Some(size2);
         self.state.mov(distance);
     }
 
     fn output_triangle(&mut self, v1: Vec3, v2: Vec3, v3: Vec3) {
         let normal = glm::normalize(&((v2 - v1).cross(&(v3 - v1))));
-        let color = Vec3::new(0.5, 0.5, 0.0);
+        let color = self.state.color;
         self.output_vertex(v1, normal, color);
-
         self.output_vertex(v2, normal, color);
         self.output_vertex(v3, normal, color);
     }
@@ -175,6 +178,7 @@ impl Turtle {
             ('&', [x]) => self.state.pitch(-*x),
             ('[', []) => self.push_state(),
             (']', []) => self.pop_state(),
+            ('`', [x, y, z]) => self.state.color(*x, *y, *z),
             _ => (),
         }
     }
