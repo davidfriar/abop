@@ -114,6 +114,7 @@ impl Application {
         TessBuilder::new(&mut self.surface)
             .add_vertices(obj)
             .set_mode(Mode::Triangle)
+            // .set_mode(Mode::Line)
             .build()
             .unwrap()
     }

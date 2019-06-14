@@ -36,7 +36,7 @@ fn main() {
         return;
     }
 
-    graphics::Application::new().run(model);
+    graphics::Application::new().run(&model);
 }
 
 fn read_input(opt: &Opt) -> String {

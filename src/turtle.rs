@@ -1,185 +1,227 @@
 use crate::graphics::{Vertex, VertexColor, VertexNormal, VertexPosition};
 use crate::lsys::{ActualParam, Element, LString};
 extern crate nalgebra_glm as glm;
-use glm::Vec3;
-use num_traits::identities::Zero;
+use glm::{Mat4, Vec3, Vec4};
+
+const DEFAULT_SIZE: f32 = 0.01;
+const DEFAULT_ANGLE: f32 = 90.0;
+const DEFAULT_DISTANCE: f32 = 0.1;
+const DEFAULT_COLOR: [f32; 3] = [0.0, 0.6, 0.6];
+const ROTATION_STEP: i8 = 5;
+const DEFAULT_SHAPE_SEGMENTS: i8 = 24;
 
 #[derive(Debug)]
 pub struct Turtle {
     state: TurtleState,
-    model: Vec<Vertex>,
     stack: Vec<TurtleState>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TurtleState {
-    position: Vec3,
-    heading: Vec3,
-    up: Vec3,
-    right: Vec3,
+    transform: Mat4,
     color: Vec3,
     size: Option<f32>,
-    shape: Vec<Vec3>,
+    shape: Vec<ShapeVertex>,
 }
 
-impl TurtleState {
-    const DEFAULT_SIZE: f32 = 0.01;
-
-    fn new() -> Self {
-        TurtleState {
-            position: Vec3::zero(),
-            color: Vec3::new(0.6, 0.6, 0.0),
-            size: None,
-            shape: Self::default_shape(),
-            heading: Vec3::y(),
-            up: Vec3::z(),
-            right: Vec3::x(),
-        }
-    }
-
-    fn default_shape() -> Vec<Vec3> {
-        let n = 12;
-        let x = Vec3::x();
-        let y = Vec3::y();
-        (0..n)
-            .map(|i| glm::rotate_vec3(&x, (i as f32 * 360.0 / n as f32).to_radians(), &y))
-            .collect()
-    }
-
-    pub fn mov(&mut self, distance: f32) {
-        self.position += self.heading * distance;
-    }
-
-    pub fn turn(&mut self, angle: f32) {
-        self.heading = glm::rotate_vec3(&self.heading, -angle.to_radians(), &self.up);
-        self.right = glm::rotate_vec3(&self.right, -angle.to_radians(), &self.up);
-    }
-
-    pub fn pitch(&mut self, angle: f32) {
-        self.heading = glm::rotate_vec3(&self.heading, angle.to_radians(), &self.right);
-        self.up = glm::rotate_vec3(&self.up, angle.to_radians(), &self.right);
-    }
-
-    pub fn roll(&mut self, angle: f32) {
-        self.right = glm::rotate_vec3(&self.right, angle.to_radians(), &self.heading);
-        self.up = glm::rotate_vec3(&self.up, angle.to_radians(), &self.heading);
-    }
-    pub fn color(&mut self, r: f32, g: f32, b: f32) {
-        self.color[0] = r;
-        self.color[1] = g;
-        self.color[2] = b;
-    }
+#[derive(Debug, Clone)]
+struct ShapeVertex {
+    pos: Vec4,
+    normal: Vec4,
 }
 
-impl Default for Turtle {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+type DrawingOutput = Option<Vec<Vertex>>;
 
 impl Turtle {
     pub fn new() -> Self {
         Turtle {
             state: TurtleState::new(),
-            model: Vec::new(),
             stack: Vec::new(),
         }
     }
 
-    pub fn push_state(&mut self) {
+    pub fn interpret(&mut self, lstring: &LString) -> Vec<Vertex> {
+        lstring
+            .into_iter()
+            .flat_map(|element| self.interpret_element(element).unwrap_or(Vec::new()))
+            .collect()
+    }
+
+    fn interpret_element(&mut self, element: &Element<ActualParam>) -> DrawingOutput {
+        match (element.symbol, element.params.values()) {
+            ('F', []) => self.state.draw(DEFAULT_DISTANCE, None),
+            ('F', [x]) => self.state.draw(*x, None),
+            ('F', [x, y]) => self.state.draw(*x, Some(*y)),
+            ('f', []) => self.state.mov(DEFAULT_DISTANCE),
+            ('f', [x]) => self.state.mov(*x),
+            ('+', []) => self.state.turn(DEFAULT_ANGLE),
+            ('+', [x]) => self.state.turn(*x),
+            ('-', []) => self.state.turn(-DEFAULT_ANGLE),
+            ('-', [x]) => self.state.turn(-*x),
+            ('/', []) => self.state.roll(DEFAULT_ANGLE),
+            ('/', [x]) => self.state.roll(*x),
+            ('\\', []) => self.state.roll(-DEFAULT_ANGLE),
+            ('\\', [x]) => self.state.roll(-*x),
+            ('^', []) => self.state.pitch(DEFAULT_ANGLE),
+            ('^', [x]) => self.state.pitch(*x),
+            ('&', []) => self.state.pitch(-DEFAULT_ANGLE),
+            ('&', [x]) => self.state.pitch(-*x),
+            ('`', [x, y, z]) => self.state.color(*x, *y, *z),
+            ('[', []) => {
+                self.push_state();
+                None
+            }
+            (']', []) => {
+                self.pop_state();
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn push_state(&mut self) {
         self.stack.push(self.state.clone());
     }
 
-    pub fn pop_state(&mut self) {
-        match self.stack.pop() {
-            Some(state) => {
-                self.state = state;
-            }
-            _ => (),
+    fn pop_state(&mut self) {
+        if let Some(state) = self.stack.pop() {
+            self.state = state;
+        }
+    }
+}
+
+impl TurtleState {
+    fn new() -> Self {
+        TurtleState {
+            transform: glm::identity(),
+            color: glm::make_vec3(&DEFAULT_COLOR),
+            size: None,
+            shape: Self::default_shape(),
         }
     }
 
-    pub fn draw(&mut self, distance: f32, new_size: Option<f32>) {
-        let size1 = self
-            .state
-            .size
-            .unwrap_or(new_size.unwrap_or(TurtleState::DEFAULT_SIZE));
-        let size2 = new_size.unwrap_or(size1);
-
-        let shape: Vec<Vec3> = self
-            .state
-            .shape
-            .iter()
-            .map(|v| {
-                Vec3::new(
-                    glm::dot(&v, &self.state.right),
-                    -glm::dot(&v, &self.state.heading),
-                    glm::dot(&v, &self.state.up),
-                )
+    fn default_shape() -> Vec<ShapeVertex> {
+        let n = DEFAULT_SHAPE_SEGMENTS;
+        let x = Vec3::x();
+        let y = Vec3::y();
+        (0..n)
+            .map(|i| glm::rotate_vec3(&x, (i as f32 * 360.0 / n as f32).to_radians(), &y))
+            .map(|v| ShapeVertex {
+                pos: Vec4::new(v.x, v.y, v.z, 1.0),
+                normal: Vec4::new(v.x, v.y, v.z, 1.0),
             })
-            .collect();
-        let shape1: Vec<Vec3> = shape
-            .iter()
-            .map(|v| v * size1 + self.state.position)
-            .collect();
-        let shape2: Vec<Vec3> = shape
-            .iter()
-            .map(|v| v * size2 + self.state.position + self.state.heading * distance)
-            .collect();
+            .collect()
+    }
+    fn position(&self) -> Vec3 {
+        glm::vec4_to_vec3(&glm::column(&self.transform, 3))
+    }
 
-        for i in 0..shape.len() {
-            let next = (i + 1) % shape.len();
-            self.output_triangle(shape2[i], shape1[i], shape2[next]);
-            self.output_triangle(shape2[next], shape1[i], shape1[next]);
+    fn right(&self) -> Vec3 {
+        glm::vec4_to_vec3(&glm::column(&self.transform, 0))
+    }
+
+    fn heading(&self) -> Vec3 {
+        glm::vec4_to_vec3(&glm::column(&self.transform, 1))
+    }
+
+    fn up(&self) -> Vec3 {
+        glm::vec4_to_vec3(&glm::column(&self.transform, 2))
+    }
+
+    pub fn mov(&mut self, distance: f32) -> DrawingOutput {
+        self.transform = glm::translation(&(self.heading() * distance)) * self.transform;
+        None
+    }
+
+    pub fn turn(&mut self, angle: f32) -> DrawingOutput {
+        self.rot(-angle, &self.up())
+    }
+
+    pub fn pitch(&mut self, angle: f32) -> DrawingOutput {
+        self.rot(angle, &self.right())
+    }
+
+    pub fn roll(&mut self, angle: f32) -> DrawingOutput {
+        self.rot(angle, &self.heading())
+    }
+
+    fn draw(&mut self, distance: f32, new_size: Option<f32>) -> DrawingOutput {
+        if self.size.is_none() {
+            self.size = new_size;
         }
-        self.state.size = Some(size2);
-        self.state.mov(distance);
+        let shape1 = self.transformed_shape();
+        self.mov(distance);
+        if new_size.is_some() {
+            self.size = new_size;
+        }
+        let shape2 = self.transformed_shape();
+        Some(self.tube(shape1, shape2))
     }
 
-    fn output_triangle(&mut self, v1: Vec3, v2: Vec3, v3: Vec3) {
-        let normal = glm::normalize(&((v2 - v1).cross(&(v3 - v1))));
-        let color = self.state.color;
-        self.output_vertex(v1, normal, color);
-        self.output_vertex(v2, normal, color);
-        self.output_vertex(v3, normal, color);
+    fn rot(&mut self, angle: f32, axis: &Vec3) -> DrawingOutput {
+        let pos = &self.position();
+        let to_origin = glm::translation(&(Vec3::zeros() - pos));
+        let to_pos = glm::translation(pos);
+
+        let steps = (angle as i8 / ROTATION_STEP).abs();
+        let rotation = glm::rotation((angle / steps as f32).to_radians(), axis);
+        Some(
+            (0..steps)
+                .flat_map(|_| {
+                    let shape1 = self.transformed_shape();
+                    self.transform = to_pos * rotation * to_origin * self.transform;
+                    let shape2 = self.transformed_shape();
+                    self.tube(shape1, shape2)
+                })
+                .collect(),
+        )
     }
 
-    fn output_vertex(&mut self, v: Vec3, normal: Vec3, color: Vec3) {
-        self.model.push(Vertex {
-            pos: VertexPosition::new([v.x, v.y, v.z]),
+    pub fn color(&mut self, r: f32, g: f32, b: f32) -> DrawingOutput {
+        self.color[0] = r;
+        self.color[1] = g;
+        self.color[2] = b;
+        None
+    }
+
+    fn transformed_shape(&mut self) -> Vec<ShapeVertex> {
+        let s = *self.size.get_or_insert(DEFAULT_SIZE);
+        let scaling = glm::scaling(&Vec3::new(s, s, s));
+        self.shape
+            .iter()
+            .map(|ShapeVertex { pos, normal }| ShapeVertex {
+                pos: self.transform * scaling * pos,
+                normal: self.transform * normal,
+            })
+            .collect()
+    }
+
+    fn tube(&self, shape1: Vec<ShapeVertex>, shape2: Vec<ShapeVertex>) -> Vec<Vertex> {
+        let n = shape1.len();
+        (0..n)
+            .flat_map(|i| {
+                let next = (i + 1) % n;
+                let mut t = self.triangle(&shape2[i], &shape1[i], &shape2[next]);
+                t.append(&mut self.triangle(&shape2[next], &shape1[i], &shape1[next]));
+                t
+            })
+            .collect()
+    }
+
+    fn triangle(&self, v1: &ShapeVertex, v2: &ShapeVertex, v3: &ShapeVertex) -> Vec<Vertex> {
+        let color = self.color;
+        vec![
+            self.vertex(v1, color),
+            self.vertex(v2, color),
+            self.vertex(v3, color),
+        ]
+    }
+
+    fn vertex(&self, v: &ShapeVertex, color: Vec3) -> Vertex {
+        Vertex {
+            pos: VertexPosition::new([v.pos.x, v.pos.y, v.pos.z]),
             col: VertexColor::new([color.x, color.y, color.z]),
-            norm: VertexNormal::new([normal.x, normal.y, normal.z]),
-        });
-    }
-
-    pub fn interpret(&mut self, lstring: &LString) -> &Vec<Vertex> {
-        for element in lstring {
-            self.interpret_element(element);
-        }
-        &self.model
-    }
-
-    fn interpret_element(&mut self, element: &Element<ActualParam>) {
-        match (element.symbol, element.params.values()) {
-            ('F', []) => self.draw(0.1, None),
-            ('F', [x]) => self.draw(*x, None),
-            ('F', [x, y]) => self.draw(*x, Some(*y)),
-            ('+', []) => self.state.turn(90.0),
-            ('+', [x]) => self.state.turn(*x),
-            ('-', []) => self.state.turn(-90.0),
-            ('-', [x]) => self.state.turn(-*x),
-            ('/', []) => self.state.roll(90.0),
-            ('/', [x]) => self.state.roll(*x),
-            ('\\', []) => self.state.roll(-90.0),
-            ('\\', [x]) => self.state.roll(-*x),
-            ('^', []) => self.state.pitch(90.0),
-            ('^', [x]) => self.state.pitch(*x),
-            ('&', []) => self.state.pitch(-90.0),
-            ('&', [x]) => self.state.pitch(-*x),
-            ('[', []) => self.push_state(),
-            (']', []) => self.pop_state(),
-            ('`', [x, y, z]) => self.state.color(*x, *y, *z),
-            _ => (),
+            norm: VertexNormal::new([v.normal.x, v.normal.y, v.normal.z]),
         }
     }
 }
@@ -193,7 +235,7 @@ mod tests {
         let mut turtle = Turtle::new();
         turtle.state.mov(0.5);
         println!("{:?}", turtle);
-        assert_relative_eq!(turtle.state.position, Vec3::new(0.0, 0.5, 0.0));
+        assert_relative_eq!(turtle.state.position(), Vec3::new(0.0, 0.5, 0.0));
     }
 
     #[test]
@@ -201,8 +243,56 @@ mod tests {
         let mut turtle = Turtle::new();
         turtle.state.turn(90.0);
         turtle.state.mov(0.5);
-        println!("{:?}", turtle);
-        assert_relative_eq!(turtle.state.position, Vec3::new(0.5, 0.0, 0.0));
+        assert_relative_eq!(
+            turtle.state.position(),
+            Vec3::new(0.5, 0.0, 0.0),
+            epsilon = std::f32::EPSILON * 2.0
+        );
+    }
+
+    // #[test]
+    fn test_move_then_turn() {
+        let mut turtle = Turtle::new();
+        println!(
+            "start {:?} position:{}, heading:{}, up:{}, right:{}",
+            turtle.state.transform.data,
+            turtle.state.position(),
+            turtle.state.heading(),
+            turtle.state.up(),
+            turtle.state.right()
+        );
+        turtle.state.mov(1.0);
+        println!(
+            "after first move {:?} position:{}, heading:{}, up:{}, right:{}",
+            turtle.state.transform.data,
+            turtle.state.position(),
+            turtle.state.heading(),
+            turtle.state.up(),
+            turtle.state.right()
+        );
+        turtle.state.turn(90.0);
+        println!(
+            "after turn {:?} position:{}, heading:{}, up:{}, right:{}",
+            turtle.state.transform.data,
+            turtle.state.position(),
+            turtle.state.heading(),
+            turtle.state.up(),
+            turtle.state.right()
+        );
+        turtle.state.mov(0.5);
+        println!(
+            "after second move {:?} position:{}, heading:{}, up:{}, right:{}",
+            turtle.state.transform.data,
+            turtle.state.position(),
+            turtle.state.heading(),
+            turtle.state.up(),
+            turtle.state.right()
+        );
+        assert_relative_eq!(
+            turtle.state.position(),
+            Vec3::new(0.5, 1.0, 0.0),
+            epsilon = std::f32::EPSILON * 2.0
+        );
     }
 
     #[test]
@@ -211,7 +301,11 @@ mod tests {
         turtle.state.pitch(90.0);
         turtle.state.mov(0.5);
         println!("{:?}", turtle);
-        assert_relative_eq!(turtle.state.position, Vec3::new(0.0, 0.0, 0.5));
+        assert_relative_eq!(
+            turtle.state.position(),
+            Vec3::new(0.0, 0.0, 0.5),
+            epsilon = std::f32::EPSILON * 2.0
+        );
     }
 
     #[test]
@@ -220,15 +314,14 @@ mod tests {
         turtle.state.roll(90.0);
         turtle.state.mov(0.5);
         println!("{:?}", turtle);
-        assert_relative_eq!(turtle.state.position, Vec3::new(0.0, 0.5, 0.0));
+        assert_relative_eq!(turtle.state.position(), Vec3::new(0.0, 0.5, 0.0));
     }
 
     #[test]
     fn test_draw() {
         let mut turtle = Turtle::new();
-        turtle.draw(0.5, None);
+        turtle.state.draw(0.5, None);
         println!("{:?}", turtle);
-        assert_relative_eq!(turtle.state.position, Vec3::new(0.0, 0.5, 0.0));
-        assert_eq!(turtle.model.len(), 2);
+        assert_relative_eq!(turtle.state.position(), Vec3::new(0.0, 0.5, 0.0));
     }
 }
