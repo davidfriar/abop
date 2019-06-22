@@ -1,7 +1,14 @@
 expression = { SOI ~ expr  ~EOI }
 expr = { term ~ (operation ~ term)* }
 term = _{ var | number | "(" ~ expr ~ ")" }
-operation = _{ add | subtract | multiply | divide | power }
+operation = _{ or | and | eq | gt | lt | ge | le | add | subtract | multiply | divide | power }
+    or  = { "||" }
+    and  = { "&&" }
+    eq  = { "==" }
+    gt  = { ">" }
+    lt  = { "<" }
+    ge  = { ">=" }
+    le  = { "<=" }
     add      = { "+" }
     subtract = { "-" }
     multiply = { "*" }

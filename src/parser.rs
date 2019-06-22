@@ -49,11 +49,16 @@ fn produce_axiom(axiom: Pair<Rule>) -> LString {
 }
 
 fn produce_production(production: Pair<Rule>) -> Production {
-    let mut production = production.into_inner();
-    Production {
-        pred: produce_element(production.next().unwrap()),
-        succ: production.map(produce_element).collect(),
-    }
+    let production = production.into_inner();
+    let mut result = Production::new();
+    production.for_each(|r| match r.as_rule() {
+        Rule::pred => result.set_predecessor(produce_element(r)),
+        Rule::probability => result.set_probability(from_str(r)),
+        Rule::condition => result.set_condition(from_str(r)),
+        Rule::succ => result.add_successor(produce_element(r)),
+        _ => unreachable!(),
+    });
+    result
 }
 
 fn produce_element<T>(element: Pair<Rule>) -> Element<T>

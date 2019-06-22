@@ -22,6 +22,13 @@ use std::str::FromStr;
 pub enum Expression {
     Var(Var),
     Value(Value),
+    Or(Box<Expression>, Box<Expression>),
+    And(Box<Expression>, Box<Expression>),
+    Eq(Box<Expression>, Box<Expression>),
+    GT(Box<Expression>, Box<Expression>),
+    LT(Box<Expression>, Box<Expression>),
+    GE(Box<Expression>, Box<Expression>),
+    LE(Box<Expression>, Box<Expression>),
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
     Mul(Box<Expression>, Box<Expression>),
@@ -39,11 +46,39 @@ impl Expression {
         match self {
             Expression::Value(x) => *x,
             Expression::Var(x) => Self::lookup(context, *x),
+
+            Expression::Or(x, y) => {
+                Self::as_value(Self::as_bool(x.eval(context)) || Self::as_bool(y.eval(context)))
+            }
+            Expression::And(x, y) => {
+                Self::as_value(Self::as_bool(x.eval(context)) && Self::as_bool(y.eval(context)))
+            }
+            Expression::Eq(x, y) => Self::as_value(x.eval(context) == y.eval(context)),
+            Expression::GT(x, y) => Self::as_value(x.eval(context) > y.eval(context)),
+            Expression::LT(x, y) => Self::as_value(x.eval(context) < y.eval(context)),
+            Expression::GE(x, y) => Self::as_value(x.eval(context) >= y.eval(context)),
+            Expression::LE(x, y) => Self::as_value(x.eval(context) <= y.eval(context)),
             Expression::Add(x, y) => x.eval(context) + y.eval(context),
             Expression::Sub(x, y) => x.eval(context) - y.eval(context),
             Expression::Mul(x, y) => x.eval(context) * y.eval(context),
             Expression::Div(x, y) => x.eval(context) / y.eval(context),
             Expression::Pow(x, y) => x.eval(context).powf(y.eval(context)),
+        }
+    }
+
+    pub fn eval_bool(&self, context: &Context) -> bool {
+        Self::as_bool(self.eval(context))
+    }
+
+    fn as_bool(x: Value) -> bool {
+        !(x == 0.0)
+    }
+
+    fn as_value(x: bool) -> Value {
+        if x {
+            1.0
+        } else {
+            0.0
         }
     }
 
@@ -61,6 +96,13 @@ impl Expression {
                 _ => unreachable!(),
             },
             |lhs: Expression, op: Pair<Rule>, rhs: Expression| match op.as_rule() {
+                Rule::or => Expression::Or(Box::new(lhs), Box::new(rhs)),
+                Rule::and => Expression::And(Box::new(lhs), Box::new(rhs)),
+                Rule::eq => Expression::Eq(Box::new(lhs), Box::new(rhs)),
+                Rule::gt => Expression::GT(Box::new(lhs), Box::new(rhs)),
+                Rule::lt => Expression::LT(Box::new(lhs), Box::new(rhs)),
+                Rule::ge => Expression::GE(Box::new(lhs), Box::new(rhs)),
+                Rule::le => Expression::LE(Box::new(lhs), Box::new(rhs)),
                 Rule::add => Expression::Add(Box::new(lhs), Box::new(rhs)),
                 Rule::subtract => Expression::Sub(Box::new(lhs), Box::new(rhs)),
                 Rule::multiply => Expression::Mul(Box::new(lhs), Box::new(rhs)),
@@ -94,6 +136,13 @@ impl fmt::Display for Expression {
         match self {
             Expression::Value(x) => write!(f, "{}", x),
             Expression::Var(x) => write!(f, "{}", x),
+            Expression::Or(x, y) => write!(f, "{}||{}", x, y),
+            Expression::And(x, y) => write!(f, "{}&&{}", x, y),
+            Expression::Eq(x, y) => write!(f, "{}=={}", x, y),
+            Expression::GT(x, y) => write!(f, "{}>{}", x, y),
+            Expression::LT(x, y) => write!(f, "{}<{}", x, y),
+            Expression::GE(x, y) => write!(f, "{}>={}", x, y),
+            Expression::LE(x, y) => write!(f, "{}<={}", x, y),
             Expression::Add(x, y) => write!(f, "{}+{}", x, y),
             Expression::Sub(x, y) => write!(f, "{}-{}", x, y),
             Expression::Mul(x, y) => write!(f, "{}*{}", x, y),
@@ -113,6 +162,12 @@ lazy_static! {
         use Rule::*;
 
         PrecClimber::new(vec![
+            Operator::new(or, Left) | Operator::new(and, Left),
+            Operator::new(eq, Left)
+                | Operator::new(gt, Left)
+                | Operator::new(lt, Left)
+                | Operator::new(ge, Left)
+                | Operator::new(le, Left),
             Operator::new(add, Left) | Operator::new(subtract, Left),
             Operator::new(multiply, Left) | Operator::new(divide, Left),
             Operator::new(power, Right),
@@ -166,4 +221,17 @@ mod tests {
         let context = &vec![('x', 5.0), ('y', 3.0)];
         assert_eq!(expr.eval(context), 10.8);
     }
+    #[test]
+    fn eval_bool_expression_from_str() {
+        let expr: Expression = "1+2>5*3".parse().ok().unwrap();
+        let context = &vec![];
+        assert_eq!(expr.eval_bool(context), false);
+    }
+    #[test]
+    fn eval_bool_expression_from_str2() {
+        let expr: Expression = "1+2>5*3||2+2==4".parse().ok().unwrap();
+        let context = &vec![];
+        assert_eq!(expr.eval_bool(context), true);
+    }
+
 }

@@ -1,4 +1,5 @@
 use crate::expr::{Context, Expression};
+use rand::prelude::*;
 use std::fmt;
 use std::iter::FromIterator;
 
@@ -32,8 +33,10 @@ pub struct Params<T> {
 
 #[derive(Debug)]
 pub struct Production {
-    pub pred: Element<FormalParam>,
-    pub succ: Vec<Element<Expression>>,
+    pred: Element<FormalParam>,
+    condition: Option<Expression>,
+    probability: f32,
+    succ: Vec<Element<Expression>>,
 }
 
 impl LSystem {
@@ -58,7 +61,20 @@ impl LSystem {
     }
 
     fn select_production(&self, element: &Element<ActualParam>) -> Option<&Production> {
-        self.productions.iter().find(|x| x.matches(&element))
+        let matches: Vec<&Production> = self
+            .productions
+            .iter()
+            .filter(|x| x.matches(&element))
+            .collect();
+        let r: f32 = rand::thread_rng().gen();
+        let mut t: f32 = 0.0;
+        for production in matches {
+            t += production.probability;
+            if r < t {
+                return Some(production);
+            }
+        }
+        None
     }
 }
 
@@ -81,9 +97,19 @@ impl Iterator for LSystem {
     }
 }
 
-impl<T> Element<T> {
+impl<T> Element<T>
+where
+    T: Clone + Default,
+{
     fn matches<U>(&self, other: &Element<U>) -> bool {
         self.symbol == other.symbol && self.params.len() == other.params.len()
+    }
+
+    fn new() -> Element<T> {
+        Element {
+            symbol: '-',
+            params: Params::empty(),
+        }
     }
 }
 
@@ -143,26 +169,56 @@ where
 }
 
 impl Production {
-    fn matches(&self, element: &Element<ActualParam>) -> bool {
-        self.pred.matches(element)
+    pub fn new() -> Production {
+        Production {
+            pred: Element::new(),
+            condition: None,
+            probability: 1.0,
+            succ: Vec::new(),
+        }
     }
 
-    fn apply(&self, element: &Element<ActualParam>) -> LString {
-        let context: Context = self
-            .pred
+    pub fn set_predecessor(&mut self, pred: Element<FormalParam>) {
+        self.pred = pred;
+    }
+
+    pub fn set_condition(&mut self, condition: Expression) {
+        self.condition = Some(condition);
+    }
+
+    pub fn set_probability(&mut self, probability: f32) {
+        self.probability = probability;
+    }
+
+    pub fn add_successor(&mut self, element: Element<Expression>) {
+        self.succ.push(element);
+    }
+
+    fn matches(&self, element: &Element<ActualParam>) -> bool {
+        self.pred.matches(element)
+            && match &self.condition {
+                None => true,
+                Some(expression) => expression.eval_bool(&self.context(element)),
+            }
+    }
+
+    fn context(&self, element: &Element<ActualParam>) -> Context {
+        self.pred
             .params
             .into_iter()
             .cloned()
             .zip(element.params.into_iter().cloned())
-            .collect();
+            .collect()
+    }
 
+    fn apply(&self, element: &Element<ActualParam>) -> LString {
         self.succ
             .iter()
             .map(|Element { symbol, params }| Element {
                 symbol: *symbol,
                 params: params
                     .into_iter()
-                    .map(|param| param.eval(&context))
+                    .map(|param| param.eval(&self.context(element)))
                     .collect(),
             })
             .collect()
