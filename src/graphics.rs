@@ -55,7 +55,7 @@ struct Camera {
     front: Vec3,
     up: Vec3,
 }
-pub struct Application {
+pub struct Application<T> {
     surface: GlfwSurface,
     program: Program<Semantics, (), ShaderInterface>,
     back_buffer: Framebuffer<Flat, Dim2, (), ()>,
@@ -63,15 +63,31 @@ pub struct Application {
     model: glm::Mat4,
     camera: Camera,
     timer: Timer,
+    obj: T,
+    tess: Tess,
 }
 
-impl Application {
+pub trait Displayable {
+    fn vertices(&mut self) -> Vec<Vertex>;
+    fn update(&mut self) {}
+}
+
+impl Displayable for Vec<Vertex> {
+    fn vertices(&mut self) -> Vec<Vertex> {
+        self.clone()
+    }
+}
+
+impl<T> Application<T>
+where
+    T: Displayable,
+{
     const DEFAULT_WIDTH: u32 = 960;
     const DEFAULT_HEIGHT: u32 = 540;
     const ROTATION_SPEED: f32 = 0.005;
 
-    pub fn new() -> Self {
-        let surface = GlfwSurface::new(
+    pub fn new(mut obj: T) -> Self {
+        let mut surface = GlfwSurface::new(
             WindowDim::Windowed(Self::DEFAULT_WIDTH, Self::DEFAULT_HEIGHT),
             "LSystem",
             WindowOpt::default(),
@@ -83,6 +99,7 @@ impl Application {
                 .expect("Shader program creation failed");
 
         let back_buffer = Framebuffer::back_buffer(surface.size());
+        let tess = Self::make_tess(&mut obj, &mut surface);
 
         Application {
             surface,
@@ -92,12 +109,12 @@ impl Application {
             model: glm::identity(),
             camera: Camera::new(),
             timer: Timer::new(),
+            obj,
+            tess,
         }
     }
 
-    pub fn run(&mut self, obj: &Vec<Vertex>) {
-        let tess = self.load_object(obj);
-
+    pub fn run(&mut self) {
         while self.handle_input() {
             let t = self.timer.elapsed();
             self.model = glm::rotate(
@@ -106,15 +123,14 @@ impl Application {
                 &Vec3::new(0.0, 1.0, 0.0),
             );
 
-            self.render(&tess);
+            self.render();
         }
     }
 
-    fn load_object(&mut self, obj: &Vec<Vertex>) -> Tess {
-        TessBuilder::new(&mut self.surface)
-            .add_vertices(obj)
+    fn make_tess(obj: &mut T, surface: &mut GlfwSurface) -> Tess {
+        TessBuilder::new(surface)
+            .add_vertices(obj.vertices())
             .set_mode(Mode::Triangle)
-            // .set_mode(Mode::Line)
             .build()
             .unwrap()
     }
@@ -130,6 +146,10 @@ impl Application {
                     Key::S => self.camera.move_back(),
                     Key::D => self.camera.turn_right(),
                     Key::A => self.camera.turn_left(),
+                    Key::Space => {
+                        self.obj.update();
+                        self.tess = Self::make_tess(&mut self.obj, &mut self.surface);
+                    }
                     _ => (),
                 },
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
@@ -147,16 +167,18 @@ impl Application {
     fn resize_window(&mut self, width: i32, height: i32) {
         self.back_buffer = Framebuffer::back_buffer([width as u32, height as u32]);
         self.projection =
+            // glm::perspective(45f32.to_radians(), 1.0, 0.1, 100.0);
             glm::perspective(45f32.to_radians(), width as f32 / height as f32, 0.1, 100.0);
     }
 
-    fn render(&mut self, obj: &Tess) {
+    fn render(&mut self) {
         let surface = &mut self.surface;
         let program = &self.program;
         let mvp_transform: glm::Mat4 = self.projection * self.camera.view() * self.model;
         let model = self.model.clone();
         let view_pos = self.camera.position.clone();
         let normal_transform = glm::mat4_to_mat3(&glm::transpose(&glm::inverse(&self.model)));
+        let tess = (&self.tess).into();
 
         surface
             .pipeline_builder()
@@ -167,7 +189,7 @@ impl Application {
                     iface.normal_transform.update(normal_transform.into());
                     iface.view_pos.update(view_pos.into());
                     rdr_gate.render(RenderState::default(), |tess_gate| {
-                        tess_gate.render(surface, obj.into());
+                        tess_gate.render(surface, tess);
                     });
                 });
             });

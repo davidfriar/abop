@@ -1,10 +1,15 @@
 WHITESPACE = _{ " " }
-COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
-lsystem = {SOI ~ axiom ~ (NEWLINE ~ production)* ~ NEWLINE? ~ EOI}
+COMMENT    = _{ block_comment | ("//" ~ (!NEWLINE ~ ANY)*) }
+block_comment = _{ "/*" ~ (block_comment | !"*/" ~ ANY)* ~ "*/" }
+
+lsystem = {SOI ~ (setting ~ NEWLINE|NEWLINE)* ~ axiom ~ (NEWLINE ~ production|NEWLINE)* ~ EOI}
 axiom = {axiom_element*}
 axiom_element = { symbol ~ actual_params? }
 actual_params = { "(" ~ number ~ ("," ~ number)* ~ ")"}
 
+setting = {"#set" ~ setting_key ~ "=" ~ setting_value}
+setting_key = {(ASCII_ALPHA | ".")*}
+setting_value = { number | array }
 production = { pred ~ "=" ~ succ*}
 pred = { symbol ~ formal_params? }
 formal_params = { "(" ~ var ~ ("," ~ var)* ~ ")"}
@@ -23,3 +28,4 @@ operation = _{ add | subtract | multiply | divide | power }
 var = { 'a'..'z' }
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+ )? }
 symbol={ ASCII_ALPHA |"+"|"-"|"["|"]"|"/"|"\\"|"^"|"&"|"`"}
+array = {"[" ~ number ~ ("," ~ number)* ~ "]"}

@@ -1,14 +1,17 @@
+use crate::config::get_config;
 use crate::graphics::{Vertex, VertexColor, VertexNormal, VertexPosition};
 use crate::lsys::{ActualParam, Element, LString};
 extern crate nalgebra_glm as glm;
 use glm::{Mat4, Vec3, Vec4};
 
-const DEFAULT_SIZE: f32 = 0.01;
-const DEFAULT_ANGLE: f32 = 90.0;
-const DEFAULT_DISTANCE: f32 = 0.1;
-const DEFAULT_COLOR: [f32; 3] = [0.0, 0.6, 0.6];
-const ROTATION_STEP: i8 = 5;
-const DEFAULT_SHAPE_SEGMENTS: i8 = 24;
+lazy_static! {
+    static ref DEFAULT_DISTANCE: f32 = get_config("turtle.default.distance");
+    static ref DEFAULT_SIZE: f32 = get_config("turtle.default.size");
+    static ref DEFAULT_ANGLE: f32 = get_config("turtle.default.angle");
+    static ref DEFAULT_COLOR: [f32; 3] = get_config("turtle.default.color");
+    static ref DEFAULT_ROTATION_STEP: i8 = get_config("turtle.default.rotation.step");
+    static ref DEFAULT_SHAPE_SEGMENTS: i8 = get_config("turtle.default.shape.segments");
+}
 
 #[derive(Debug)]
 pub struct Turtle {
@@ -49,22 +52,22 @@ impl Turtle {
 
     fn interpret_element(&mut self, element: &Element<ActualParam>) -> DrawingOutput {
         match (element.symbol, element.params.values()) {
-            ('F', []) => self.state.draw(DEFAULT_DISTANCE, None),
+            ('F', []) => self.state.draw(*DEFAULT_DISTANCE, None),
             ('F', [x]) => self.state.draw(*x, None),
             ('F', [x, y]) => self.state.draw(*x, Some(*y)),
-            ('f', []) => self.state.mov(DEFAULT_DISTANCE),
+            ('f', []) => self.state.mov(*DEFAULT_DISTANCE),
             ('f', [x]) => self.state.mov(*x),
-            ('+', []) => self.state.turn(DEFAULT_ANGLE),
+            ('+', []) => self.state.turn(*DEFAULT_ANGLE),
             ('+', [x]) => self.state.turn(*x),
-            ('-', []) => self.state.turn(-DEFAULT_ANGLE),
+            ('-', []) => self.state.turn(-*DEFAULT_ANGLE),
             ('-', [x]) => self.state.turn(-*x),
-            ('/', []) => self.state.roll(DEFAULT_ANGLE),
+            ('/', []) => self.state.roll(*DEFAULT_ANGLE),
             ('/', [x]) => self.state.roll(*x),
-            ('\\', []) => self.state.roll(-DEFAULT_ANGLE),
+            ('\\', []) => self.state.roll(-*DEFAULT_ANGLE),
             ('\\', [x]) => self.state.roll(-*x),
-            ('^', []) => self.state.pitch(DEFAULT_ANGLE),
+            ('^', []) => self.state.pitch(*DEFAULT_ANGLE),
             ('^', [x]) => self.state.pitch(*x),
-            ('&', []) => self.state.pitch(-DEFAULT_ANGLE),
+            ('&', []) => self.state.pitch(-*DEFAULT_ANGLE),
             ('&', [x]) => self.state.pitch(-*x),
             ('`', [x, y, z]) => self.state.color(*x, *y, *z),
             ('[', []) => {
@@ -94,14 +97,14 @@ impl TurtleState {
     fn new() -> Self {
         TurtleState {
             transform: glm::identity(),
-            color: glm::make_vec3(&DEFAULT_COLOR),
+            color: glm::make_vec3(&*DEFAULT_COLOR),
             size: None,
             shape: Self::default_shape(),
         }
     }
 
     fn default_shape() -> Vec<ShapeVertex> {
-        let n = DEFAULT_SHAPE_SEGMENTS;
+        let n = *DEFAULT_SHAPE_SEGMENTS;
         let x = Vec3::x();
         let y = Vec3::y();
         (0..n)
@@ -163,7 +166,7 @@ impl TurtleState {
         let to_origin = glm::translation(&(Vec3::zeros() - pos));
         let to_pos = glm::translation(pos);
 
-        let steps = (angle as i8 / ROTATION_STEP).abs();
+        let steps = (angle as i8 / *DEFAULT_ROTATION_STEP).abs();
         let rotation = glm::rotation((angle / steps as f32).to_radians(), axis);
         Some(
             (0..steps)
@@ -185,7 +188,7 @@ impl TurtleState {
     }
 
     fn transformed_shape(&mut self) -> Vec<ShapeVertex> {
-        let s = *self.size.get_or_insert(DEFAULT_SIZE);
+        let s = *self.size.get_or_insert(*DEFAULT_SIZE);
         let scaling = glm::scaling(&Vec3::new(s, s, s));
         self.shape
             .iter()
@@ -229,6 +232,7 @@ impl TurtleState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_mov() {
@@ -250,7 +254,7 @@ mod tests {
         );
     }
 
-    // #[test]
+    #[test]
     fn test_move_then_turn() {
         let mut turtle = Turtle::new();
         println!(

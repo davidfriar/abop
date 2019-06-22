@@ -1,0 +1,7 @@
+[turtle]
+default.distance=0.1
+default.size=0.02
+default.angle=90.0
+default.color=[1.0, 0.6, 0.0]
+default.rotation.step=5
+default.shape.segments=24

@@ -49,3 +49,17 @@ pub struct Opt {
     )]
     pub input_graphics_model: bool,
 }
+
+impl Opt {
+    pub fn use_graphics(&self) -> bool {
+        !(self.output_model || self.output_lsystem)
+    }
+
+    pub fn use_turtle(&self) -> bool {
+        !self.output_lsystem && !self.input_graphics_model
+    }
+
+    pub fn use_lsystem(&self) -> bool {
+        !self.input_graphics_model
+    }
+}

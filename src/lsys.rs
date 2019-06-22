@@ -170,7 +170,7 @@ impl Production {
 }
 
 impl LString {
-    fn new() -> Self {
+    pub fn new() -> Self {
         LString(Vec::new())
     }
 
