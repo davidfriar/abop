@@ -11,6 +11,3 @@ pub mod iter;
 pub mod lsys;
 pub mod parser;
 pub mod turtle;
-
-pub const KOCH: &str = include_str!("data/koch");
-pub const SIMPLE: &str = include_str!("data/simple");

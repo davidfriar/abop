@@ -1,0 +1,5 @@
+#set turtle.default.angle=30
+F
+{0.25} F = F[+F]
+{0.75} F = FF
+

@@ -1,8 +1,8 @@
-use abop::cli::Opt;
-use abop::graphics;
-use abop::lsys::LSystem;
-use abop::parser;
-use abop::turtle::Turtle;
+use abop_lib::cli::Opt;
+use abop_lib::graphics;
+use abop_lib::lsys::LSystem;
+use abop_lib::parser;
+use abop_lib::turtle::Turtle;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::fs;
 use std::io::{self, Read};

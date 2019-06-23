@@ -29,5 +29,8 @@ pub fn set_config<T>(name: &str, value: T)
 where
     T: Into<Value>,
 {
-    SETTINGS.write().unwrap().set(name, value);
+    match SETTINGS.write().unwrap().set(name, value) {
+        Ok(_) => (),
+        Err(e) => panic!("couldn't write config: {}", e),
+    }
 }

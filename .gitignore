@@ -1,2 +1,4 @@
 /target
+/abop_app/target
+/abop_lib/target
 **/*.rs.bk

@@ -1,0 +1,10 @@
+[package]
+name = "abop_app"
+version = "0.1.0"
+authors = ["David Friar <david.friar@cognifide.com>"]
+edition = "2018"
+
+[dependencies]
+abop_lib = {path="../abop_lib"}
+device_query = "0.1.3"
+structopt = "0.2.15"

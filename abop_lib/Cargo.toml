@@ -1,0 +1,22 @@
+[package]
+name = "abop_lib"
+version = "0.1.0"
+authors = ["David Friar <david.friar@cognifide.com>"]
+edition = "2018"
+
+[dependencies]
+luminance = { git = "https://github.com/phaazon/luminance-rs.git" }
+luminance-derive = { git = "https://github.com/phaazon/luminance-rs.git" }
+luminance-glfw = { git = "https://github.com/phaazon/luminance-rs.git" }
+pest="2.1.1"
+pest_derive="2.1.0"
+arrayvec="0.4.10"
+lazy_static = "1.3.0"
+structopt = "0.2.15"
+nalgebra-glm = "0.4.0"
+num-traits = "0.2"
+nalgebra = "0.18.0"
+approx = "0.3.2"
+config = "0.9.3"
+serde = "1.0.92"
+rand = "0.6.5"

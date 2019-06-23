@@ -1,0 +1,13 @@
+// this is amazing
+#set turtle.default.angle=22.5
+#set turtle.default.color=[0.0, 0.6, 0.2]
+
+// we start with just an F
+
+F
+
+
+
+F=FF-[-F+F+F]+[+F-F-F]
+
+//and we end up with a plant
