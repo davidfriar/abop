@@ -52,7 +52,10 @@ impl LSystem {
     pub fn generate(&mut self) {
         for element in &self.current {
             match self.select_production(&element) {
-                Some(production) => self.next.append(&mut production.apply(&element)),
+                Some(production) => {
+                    let mut lstring = production.apply(&element);
+                    self.next.append(&mut lstring)
+                }
                 None => self.next.push(element.clone()),
             }
         }

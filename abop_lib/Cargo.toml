@@ -20,3 +20,11 @@ approx = "0.3.2"
 config = "0.9.3"
 serde = "1.0.92"
 rand = "0.6.5"
+
+
+[dev-dependencies]
+criterion = "0.2.11"
+
+[[bench]]
+name = "bench"
+harness = false
