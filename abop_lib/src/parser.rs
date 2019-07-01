@@ -1,5 +1,5 @@
 use crate::config::set_config;
-use crate::lsys::{Element, LString, LSystem, Params, Production};
+use crate::lsys::{Element, LString, LSystem, Production};
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -74,7 +74,7 @@ where
         },
         None => Element {
             symbol,
-            params: Params::empty(),
+            params: Vec::new(),
         },
     }
 }

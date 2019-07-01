@@ -51,7 +51,7 @@ impl Turtle {
     }
 
     fn interpret_element(&mut self, element: &Element<ActualParam>) -> DrawingOutput {
-        match (element.symbol, element.params.values()) {
+        match (element.symbol, &element.params[..]) {
             ('F', []) => self.state.draw(*DEFAULT_DISTANCE, None),
             ('F', [x]) => self.state.draw(*x, None),
             ('F', [x, y]) => self.state.draw(*x, Some(*y)),
